@@ -65,14 +65,32 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${{ steps.version.outputs.VERSION }}$" | head -n1)
+          
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "No previous tag found, using all commits"
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --reverse)
+          else
+            echo "Previous tag: $PREVIOUS_TAG"
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --reverse $PREVIOUS_TAG..HEAD)
+          fi
+          
+          # Save changelog to file and environment
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo "PREVIOUS_TAG=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+
       - name: Create release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ steps.version.outputs.VERSION }}
+          name: Release ${{ steps.version.outputs.VERSION }}
           body: |
             ## VMUPro Nofrendo NES Emulator ${{ steps.version.outputs.VERSION }}
             
@@ -80,24 +98,22 @@ jobs:
             - Automatic build from ESP-IDF ${{ env.IDF_VERSION }}
             - Target: ${{ env.ESP_TARGET }}
             
+            ### Changes Since ${{ steps.changelog.outputs.PREVIOUS_TAG || 'First Release' }}
+            ${{ steps.changelog.outputs.CHANGELOG }}
+            
             ### Installation
             1. Download the `nofrendo.vmupack` file below
             2. Copy it to the `apps` directory on your VMUPro's microSD card
             3. The emulator will appear in your VMUPro app menu
             
-            Built automatically from commit: ${{ github.sha }}
+            ---
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.changelog.outputs.PREVIOUS_TAG }}...${{ steps.version.outputs.VERSION }}
+            
+            *Built automatically from commit: ${{ github.sha }}*
+          files: |
+            ./src/nofrendo.vmupack
           draft: false
           prerelease: false
-
-      - name: Upload VMUPack file
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./src/nofrendo.vmupack
-          asset_name: nofrendo.vmupack
-          asset_content_type: application/octet-stream
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
