@@ -4,3 +4,5 @@ src/nofrendo/managed_components
 src/build
 src/managed_components
 *.old
+src/main/nofrendo/.DS_Store
+*.vmupack

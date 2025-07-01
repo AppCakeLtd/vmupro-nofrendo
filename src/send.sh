@@ -1,2 +1,2 @@
 #!/bin/sh
-python3 ../../tools/packer/send.py "$@"
+python3 ../vmupro-sdk/tools/packer/send.py "$@"
