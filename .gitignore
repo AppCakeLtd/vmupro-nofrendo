@@ -3,3 +3,4 @@ src/nofrendo/build
 src/nofrendo/managed_components
 src/build
 src/managed_components
+*.old
