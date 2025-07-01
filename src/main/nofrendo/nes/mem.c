@@ -195,8 +195,18 @@ void mem_reset(void)
 
 mem_t *mem_init_(void)
 {
-   // Don't care if the alloc fails, dummy is just a safety net
-   mem.dummy = malloc(MEM_PAGESIZE);
+   // Explicitly zero-initialize static mem structure for ELF relocation compatibility
+   memset(&mem, 0, sizeof(mem_t));
+   
+   // We DO care if the alloc fails - without dummy, unmapped pages crash!
+   mem.dummy = vmupro_malloc(MEM_PAGESIZE);
+   if (!mem.dummy) {
+      MESSAGE_ERROR("MEM: Failed to allocate dummy page! This will cause crashes.\n");
+      // Allocate a static emergency buffer as fallback
+      static uint8_t emergency_dummy[MEM_PAGESIZE];
+      mem.dummy = emergency_dummy;
+   }
+   
    mem_reset();
    return &mem;
 }

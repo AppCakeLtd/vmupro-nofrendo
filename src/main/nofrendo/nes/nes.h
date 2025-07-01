@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include "vmupro_sdk.h"
 
 #ifdef __cplusplus
 extern "C" {

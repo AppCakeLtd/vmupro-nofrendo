@@ -55,7 +55,8 @@ void *nofrendo_buildpalette(nespal_t palette, int bitdepth) {
   const uint8 *nes_palette = nes_palettes[palette];
 
   if (bitdepth == 15 || bitdepth == 16) {
-    uint16 *colors = calloc(256, 2);
+    uint16 *colors = vmupro_malloc(256 * 2);
+    if (colors) memset(colors, 0, 256 * 2);
     uint16 color   = 0;
 
     for (int i = 0; i < 64; i++) {
@@ -80,7 +81,8 @@ void *nofrendo_buildpalette(nespal_t palette, int bitdepth) {
     return colors;
   }
   else if (bitdepth == 24) {
-    uint8 *colors = calloc(256, 3);
+    uint8 *colors = vmupro_malloc(256 * 3);
+    if (colors) memset(colors, 0, 256 * 3);
     memcpy(colors, nes_palette, 64 * 3);
     /* Set it up 3 times, for sprite priority/BG transparency trickery */
     memcpy(colors + (64 * 3), nes_palette, 64 * 3);

@@ -562,7 +562,7 @@ void ppu_endline(void) {
   }
 }
 
-static uint8_t linebuffer[0x200];
+static uint8_t *linebuffer = NULL;
 
 void ppu_renderline(uint8 *bmp, int scanline, bool draw_flag, uint16_t *palette) {
   ppu.scanline = scanline;
@@ -633,8 +633,14 @@ void ppu_reset(void) {
 ppu_t *ppu_init(void) {
   memset(&ppu, 0, sizeof(ppu_t));
 
-  ppu.nametab = malloc(0x400 * 4);
+  ppu.nametab = vmupro_malloc(0x400 * 4);
   if (!ppu.nametab) return NULL;
+
+  linebuffer = vmupro_malloc(0x200);
+  if (!linebuffer) {
+    free(ppu.nametab);
+    return NULL;
+  }
 
   ppu_setopt(PPU_DRAW_BACKGROUND, true);
   ppu_setopt(PPU_DRAW_SPRITES, true);
@@ -646,6 +652,8 @@ ppu_t *ppu_init(void) {
 void ppu_shutdown(void) {
   free(ppu.nametab);
   ppu.nametab = NULL;
+  free(linebuffer);
+  linebuffer = NULL;
 }
 
 /*************************************************/

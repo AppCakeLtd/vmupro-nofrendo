@@ -777,7 +777,9 @@ apu_t *apu_init(int sample_rate, bool stereo)
 {
    memset(&apu, 0, sizeof(apu_t));
 
-   apu.buffer = calloc(sample_rate / 50 + 2, stereo ? 4 : 2);
+   size_t buffer_size = (sample_rate / 50 + 2) * (stereo ? 4 : 2);
+   apu.buffer = vmupro_malloc(buffer_size);
+   if (apu.buffer) memset(apu.buffer, 0, buffer_size);
    apu.sample_rate = sample_rate;
    apu.stereo = stereo;
    apu.ext = NULL;

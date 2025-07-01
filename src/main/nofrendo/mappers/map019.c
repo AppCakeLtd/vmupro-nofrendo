@@ -271,7 +271,7 @@ static const apuext_t sound_ext = {
 static void map_init(rom_t *cart)
 {
     if (!map019)
-        map019 = malloc(sizeof(map019_t));
+        map019 = vmupro_malloc(sizeof(map019_t));
     memset(map019, 0, sizeof(map019_t));
     map019->cart = cart;
     map019->irq.counter = 0;
