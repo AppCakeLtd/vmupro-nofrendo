@@ -1,0 +1,115 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0, v2.1.3, etc.
+
+env:
+  IDF_VERSION: "v5.4"
+  ESP_TARGET: "esp32s3"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install ESP-IDF
+        run: |
+          mkdir -p ~/esp
+          cd ~/esp
+          git clone --recursive --branch ${{ env.IDF_VERSION }} https://github.com/espressif/esp-idf.git
+          cd esp-idf
+          ./install.sh ${{ env.ESP_TARGET }}
+
+      - name: Setup ESP-IDF environment
+        run: |
+          source ~/esp/esp-idf/export.sh
+          echo "IDF_PATH=$IDF_PATH" >> $GITHUB_ENV
+          echo "PATH=$PATH" >> $GITHUB_ENV
+          echo "IDF_PYTHON_ENV_PATH=$IDF_PYTHON_ENV_PATH" >> $GITHUB_ENV
+
+      - name: Verify ESP-IDF installation
+        run: |
+          source ~/esp/esp-idf/export.sh
+          idf.py --version
+
+      - name: Set target and configure
+        working-directory: ./src
+        run: |
+          source ~/esp/esp-idf/export.sh
+          idf.py set-target ${{ env.ESP_TARGET }}
+
+      - name: Build project
+        working-directory: ./src
+        run: |
+          source ~/esp/esp-idf/export.sh
+          idf.py build
+
+      - name: Install packer dependencies
+        run: |
+          pip install pillow
+
+      - name: Package application
+        working-directory: ./src
+        run: |
+          chmod +x pack.sh
+          ./pack.sh
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## VMUPro Nofrendo NES Emulator ${{ steps.version.outputs.VERSION }}
+            
+            ### What's New
+            - Automatic build from ESP-IDF ${{ env.IDF_VERSION }}
+            - Target: ${{ env.ESP_TARGET }}
+            
+            ### Installation
+            1. Download the `nofrendo.vmupack` file below
+            2. Copy it to the `apps` directory on your VMUPro's microSD card
+            3. The emulator will appear in your VMUPro app menu
+            
+            Built automatically from commit: ${{ github.sha }}
+          draft: false
+          prerelease: false
+
+      - name: Upload VMUPack file
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./src/nofrendo.vmupack
+          asset_name: nofrendo.vmupack
+          asset_content_type: application/octet-stream
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts-${{ steps.version.outputs.VERSION }}
+          path: |
+            ./src/build/nofrendo.app.elf
+            ./src/nofrendo.vmupack
+          retention-days: 30
