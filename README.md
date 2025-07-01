@@ -1,6 +1,6 @@
 # VMUPro Nofrendo NES Emulator
 
-A Nintendo Entertainment System (NES) emulator for the VMUPro handheld device, based on the Nofrendo emulator core.
+A Nintendo Entertainment System (NES) emulator for the [VMUPro](https://8bitmods.com/vmupro-handheld-visual-memory-card-for-dreamcast-smoke-black/) handheld device, based on the Nofrendo emulator core.
 
 ## Overview
 
