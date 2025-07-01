@@ -33,15 +33,6 @@ jobs:
           cd esp-idf
           ./install.sh ${{ env.ESP_TARGET }}
 
-      - name: Setup ESP-IDF environment
-        run: |
-          cd ~/esp/esp-idf
-          . ./export.sh
-          echo "IDF_PATH=$IDF_PATH" >> $GITHUB_ENV
-          echo "PATH=$PATH" >> $GITHUB_ENV
-          echo "IDF_PYTHON_ENV_PATH=$IDF_PYTHON_ENV_PATH" >> $GITHUB_ENV
-          echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> $GITHUB_ENV
-
       - name: Verify ESP-IDF installation
         run: |
           cd ~/esp/esp-idf
@@ -51,17 +42,13 @@ jobs:
       - name: Set target and configure
         working-directory: ./src
         run: |
-          cd ~/esp/esp-idf
-          . ./export.sh
-          cd -
+          cd ~/esp/esp-idf && . ./export.sh && cd $GITHUB_WORKSPACE/src
           idf.py set-target ${{ env.ESP_TARGET }}
 
       - name: Build project
         working-directory: ./src
         run: |
-          cd ~/esp/esp-idf
-          . ./export.sh
-          cd -
+          cd ~/esp/esp-idf && . ./export.sh && cd $GITHUB_WORKSPACE/src
           idf.py build
 
       - name: Install packer dependencies
