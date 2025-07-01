@@ -1,0 +1,9 @@
+{
+    "app_name": "Nofrendo",
+    "app_author": "8BitMods",
+    "app_version": "1.0.0",
+    "app_entry_point": "app_main",
+    "icon_transparency": true,
+    "app_mode": 2,
+    "resources": []
+}
