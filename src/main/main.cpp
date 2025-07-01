@@ -192,18 +192,18 @@ void Tick() {
     //       currentEmulatorState = EmulatorMenuState::EMULATOR_MENU;
     //     }
 
-    // if (renderFrame) {
-    nes_back_buffer = vmupro_get_back_buffer();
-    nes_setvidbuf(nes_back_buffer);
-    nes_emulate(true);
-    vmupro_push_double_buffer_frame();
-    // }
-    // else {
-    //   nes_emulate(false);
-    //   renderFrame = 1;
-    // }
+    if (renderFrame) {
+      nes_back_buffer = vmupro_get_back_buffer();
+      nes_setvidbuf(nes_back_buffer);
+      nes_emulate(true);
+      vmupro_push_double_buffer_frame();
+    }
+    else {
+      nes_emulate(false);
+      renderFrame = 1;
+    }
 
-    //     Audio::getInstance()->addStreamSamples((int16_t*)nes->apu->buffer, nes->apu->samples_per_frame, false);
+    vmupro_audio_add_stream_samples((int16_t *)nes->apu->buffer, nes->apu->samples_per_frame, true);
 
     ++frame_counter;
 
@@ -295,7 +295,7 @@ void app_main(void) {
 
   nes->builtPalette = palette;
 
-  // Audio::getInstance()->startListenMode(PlayMode::SAMPLES);
+  vmupro_audio_start_listen_mode();
 
   // Apparently we need to emulate two frames in order to restore the state
   vmupro_log(VMUPRO_LOG_INFO, kLogNESEmu, "two frames rendering");
