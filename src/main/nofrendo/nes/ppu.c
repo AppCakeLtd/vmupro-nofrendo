@@ -650,10 +650,15 @@ ppu_t *ppu_init(void) {
 }
 
 void ppu_shutdown(void) {
-  free(ppu.nametab);
-  ppu.nametab = NULL;
-  free(linebuffer);
-  linebuffer = NULL;
+  if (ppu.nametab) {
+    free(ppu.nametab);
+    ppu.nametab = NULL;
+  }
+
+  // if (linebuffer) {
+  //   free(linebuffer);
+  //   linebuffer = NULL;
+  // }
 }
 
 /*************************************************/

@@ -260,9 +260,9 @@ void rom_free(void) {
     if (rom.free_prg_rom) free(rom.prg_rom);
     if (rom.free_chr_rom) free(rom.chr_rom);
     if (rom.free_trainer) free(rom.trainer);
-    free(rom.prg_ram);
-    free(rom.chr_ram);
-    free(rom.filename);
+    if (rom.prg_ram) free(rom.prg_ram);
+    if (rom.chr_ram) free(rom.chr_ram);
+    if (rom.filename) free(rom.filename);
   }
   memset(&rom, 0, sizeof(rom_t));
 }
