@@ -100,7 +100,7 @@ static bool loadStateHandler(const char *filename) {
 
 static void buildPalette() {  // eventually pass a param to choose the palette
   // allocate the palette
-  palette = (uint16_t *)malloc(256 * sizeof(uint16_t));
+  palette = (uint16_t *)vmupro_malloc(256 * sizeof(uint16_t));
 
   uint16_t *pal = (uint16_t *)nofrendo_buildpalette(NES_PALETTE_SMOOTH, 16);
   for (int i = 0; i < 256; ++i) {
@@ -126,7 +126,7 @@ void Tick() {
     vmupro_btn_read();
 
     if (currentEmulatorState == EmulatorMenuState::EMULATOR_MENU) {
-      // vmupro_display_clear(VMUPRO_COLOR_BLACK);
+      vmupro_display_clear(VMUPRO_COLOR_BLACK);
       // vmupro_blit_buffer_dithered(pauseBuffer, 0, 0, 240, 240, 2);
       vmupro_blit_buffer_blended(pauseBuffer, 0, 0, 240, 240, 150);
       // We'll only use our front buffer for this to simplify things
@@ -195,6 +195,7 @@ void Tick() {
       else if (vmupro_btn_pressed(Btn_A)) {
         // Get the selection index. What are we supposed to do?
         if (nesContextSelectionIndex == 0) {
+          vmupro_resume_double_buffer_renderer();
           // Save in both cases
           savaStateHandler((const char *)launchfile);
 
@@ -205,6 +206,7 @@ void Tick() {
           currentEmulatorState = EmulatorMenuState::EMULATOR_RUNNING;
         }
         else if (nesContextSelectionIndex == 1) {
+          vmupro_resume_double_buffer_renderer();
           loadStateHandler((const char *)launchfile);
 
           // Close the modal
@@ -214,6 +216,7 @@ void Tick() {
           currentEmulatorState = EmulatorMenuState::EMULATOR_RUNNING;
         }
         else if (nesContextSelectionIndex == 2) {  // Reset
+          vmupro_resume_double_buffer_renderer();
           reset_frame_time();
           lastTime       = vmupro_get_time_us();
           accumulated_us = 0;
@@ -263,7 +266,13 @@ void Tick() {
         // Copy the rendered framebuffer to our pause buffer
         vmupro_delay_ms(16);
 
-        memcpy(pauseBuffer, nes_back_buffer, 115200);
+        // get the last rendered buffer
+        if (vmupro_get_last_blitted_fb_side() == 0) {
+          memcpy(pauseBuffer, vmupro_get_front_fb(), 115200);
+        }
+        else {
+          memcpy(pauseBuffer, vmupro_get_back_fb(), 115200);
+        }
         vmupro_pause_double_buffer_renderer();
 
         // Set the state to show the overlay
@@ -346,7 +355,8 @@ void app_main(void) {
   };
   vmupro_emubrowser_init(emuSettings);
 
-  launchfile = (char *)calloc(1, 512);
+  launchfile = (char *)vmupro_malloc(512);
+  memset(launchfile, 0x00, 512);
   vmupro_emubrowser_render_contents(launchfile);
   if (strlen(launchfile) == 0) {
     vmupro_log(VMUPRO_LOG_ERROR, kLogNESEmu, "We somehow exited the browser with no file to show!");
