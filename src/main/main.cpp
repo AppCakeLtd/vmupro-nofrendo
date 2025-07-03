@@ -10,7 +10,8 @@ typedef enum ContextMenuEntryType {
   MENU_OPTION_BRIGHTNESS,
   MENU_OPTION_PALETTE,
   MENU_OPTION_SCALING,
-  MENU_OPTION_STATE_SLOT
+  MENU_OPTION_STATE_SLOT,
+  MENU_OPTION_NONE
 };
 
 typedef struct ContextMenuEntry_s {
@@ -31,9 +32,11 @@ const ContextMenuEntry emuContextOptionEntries[5] = {
     {.title = "Volume", .enabled = true, .type = MENU_OPTION_VOLUME},
     {.title = "Brightness", .enabled = true, .type = MENU_OPTION_BRIGHTNESS},
     {.title = "Palette", .enabled = true, .type = MENU_OPTION_PALETTE},
-    // {.title = "Scaling", .enabled = true, .type = MENU_OPTION_SCALING},
     {.title = "State Slot", .enabled = true, .type = MENU_OPTION_STATE_SLOT},
+    {.title = "", .enabled = false, .type = MENU_OPTION_NONE},
 };
+
+static const char *PaletteNames[] = {"Nofrendo", "Composite", "Classic", "NTSC", "PVM", "Smooth"};
 
 static const char *kLogNESEmu       = "[VMU-PRO NES]";
 static bool emuRunning              = true;
@@ -43,6 +46,7 @@ static int frame_counter            = 0;
 static int renderFrame              = 0;
 static uint32_t num_frames          = 0;
 static int nesContextSelectionIndex = 0;
+static int nesCurrentPaletteIndex   = 0;
 
 static uint64_t frame_time       = 0.0f;
 static uint64_t frame_time_total = 0.0f;
@@ -98,15 +102,21 @@ static bool loadStateHandler(const char *filename) {
   return true;
 }
 
-static void buildPalette() {  // eventually pass a param to choose the palette
+static void buildPalette(nespal_t palIdx) {  // eventually pass a param to choose the palette
   // allocate the palette
-  palette = (uint16_t *)vmupro_malloc(256 * sizeof(uint16_t));
+  if (!palette) {
+    palette = (uint16_t *)vmupro_malloc(256 * sizeof(uint16_t));
+  }
+  else {
+    memset(palette, 0x00, 256 * sizeof(uint16_t));
+  }
 
-  uint16_t *pal = (uint16_t *)nofrendo_buildpalette(NES_PALETTE_SMOOTH, 16);
+  uint16_t *pal = (uint16_t *)nofrendo_buildpalette(palIdx, 16);
   for (int i = 0; i < 256; ++i) {
     uint16_t color = (pal[i] >> 8) | (pal[i] << 8);
     palette[i]     = color;
   }
+  nes->builtPalette = palette;
   free(pal);
 }
 
@@ -133,7 +143,6 @@ void Tick() {
       int startY = 50;
       vmupro_draw_fill_rect(40, 37, 200, 170, VMUPRO_COLOR_NAVY);
 
-      //     ST7789_SetFont(&Font_Open_Sans_15x18);
       vmupro_set_font(VMUPRO_FONT_OPEN_SANS_15x18);
       for (int x = 0; x < 5; ++x) {
         uint16_t fgColor = nesContextSelectionIndex == x ? VMUPRO_COLOR_NAVY : VMUPRO_COLOR_WHITE;
@@ -148,21 +157,21 @@ void Tick() {
           switch (emuContextOptionEntries[x].type) {
             case MENU_OPTION_BRIGHTNESS: {
               char currentBrightness[5] = "0%";
-              // snprintf(currentBrightness, 6, "%d%%", (settings->brightness * 10) + 10);
+              vmupro_snprintf(currentBrightness, 6, "%d%%", (vmupro_get_global_brightness() * 10) + 10);
               int tlen = vmupro_calc_text_length(currentBrightness);
               vmupro_draw_text(currentBrightness, 190 - tlen - 5, startY + (x * 22), fgColor, bgColor);
             } break;
             case MENU_OPTION_VOLUME: {
               char currentVolume[5] = "0%";
-              //       snprintf(currentVolume, 6, "%d%%", (settings->volume * 10) + 10);
+              vmupro_snprintf(currentVolume, 6, "%d%%", (vmupro_get_global_volume() * 10) + 10);
               int tlen = vmupro_calc_text_length(currentVolume);
               vmupro_draw_text(currentVolume, 190 - tlen - 5, startY + (x * 22), fgColor, bgColor);
             } break;
             case MENU_OPTION_PALETTE: {
-              //       int tlen = ST7789_CalcTextLength(PaletteNames[gbcCurrentPaletteIndex]);
-              //       ST7789_DrawText(
-              //           PaletteNames[gbcCurrentPaletteIndex], 190 - tlen - 5, startY + (x * 22), fgColor, bgColor
-              //       );
+              int tlen = vmupro_calc_text_length(PaletteNames[nesCurrentPaletteIndex]);
+              vmupro_draw_text(
+                  PaletteNames[nesCurrentPaletteIndex], 190 - tlen - 5, startY + (x * 22), fgColor, bgColor
+              );
             } break;
             default:
               break;
@@ -192,7 +201,7 @@ void Tick() {
           currentEmulatorState = EmulatorMenuState::EMULATOR_RUNNING;
         }
       }
-      else if (vmupro_btn_pressed(Btn_A)) {
+      else if (vmupro_btn_pressed(Btn_A) && !inOptionsMenu) {
         // Get the selection index. What are we supposed to do?
         if (nesContextSelectionIndex == 0) {
           vmupro_resume_double_buffer_renderer();
@@ -228,10 +237,9 @@ void Tick() {
           inOptionsMenu = true;
         }
         else if (nesContextSelectionIndex == 4) {  // Quit
+          appExitFlag = true;
+          emuRunning  = false;
           nes_shutdown();
-          appExitFlag          = true;
-          emuRunning           = false;
-          currentEmulatorState = EmulatorMenuState::EMULATOR_RUNNING;
         }
       }
       else if (vmupro_btn_pressed(DPad_Down)) {
@@ -245,6 +253,47 @@ void Tick() {
           nesContextSelectionIndex = 4;
         else
           nesContextSelectionIndex--;
+      }
+      else if ((vmupro_btn_pressed(DPad_Right) || vmupro_btn_pressed(DPad_Left)) && inOptionsMenu) {
+        // Adjust the setting
+        switch (emuContextOptionEntries[nesContextSelectionIndex].type) {
+          case MENU_OPTION_BRIGHTNESS: {
+            uint8_t currentBrightness = vmupro_get_global_brightness();
+            uint8_t newBrightness     = 1;
+            if (vmupro_btn_pressed(DPad_Right)) {
+              newBrightness = currentBrightness < 10 ? currentBrightness + 1 : 10;
+            }
+            else {
+              newBrightness = currentBrightness > 0 ? currentBrightness - 1 : 0;
+            }
+            // settings->brightness = newBrightness;
+            vmupro_set_global_brightness(newBrightness);
+            // OLEDDisplay::getInstance()->setBrightness(newBrightness, true, false);
+          } break;
+          case MENU_OPTION_VOLUME: {
+            uint8_t currentVolume = vmupro_get_global_volume();
+            uint8_t newVolume     = 1;
+            if (vmupro_btn_pressed(DPad_Right)) {
+              newVolume = currentVolume < 10 ? currentVolume + 1 : 10;
+            }
+            else {
+              newVolume = currentVolume > 0 ? currentVolume - 1 : 0;
+            }
+            vmupro_set_global_volume(newVolume);
+          } break;
+          case MENU_OPTION_PALETTE: {
+            if (vmupro_btn_pressed(DPad_Right)) {
+              nesCurrentPaletteIndex =
+                  nesCurrentPaletteIndex < NES_PALETTE_COUNT - 1 ? nesCurrentPaletteIndex + 1 : NES_PALETTE_COUNT - 1;
+            }
+            else {
+              nesCurrentPaletteIndex = nesCurrentPaletteIndex > 0 ? nesCurrentPaletteIndex - 1 : 0;
+            }
+            buildPalette((nespal_t)nesCurrentPaletteIndex);
+          } break;
+          default:
+            break;
+        }
       }
     }
     else {  // Run!
@@ -327,29 +376,30 @@ void Tick() {
 }
 
 void Exit() {
+  printf("launch\n");
   if (launchfile) {
     free(launchfile);
     launchfile = nullptr;
   }
 
+  printf("palette\n");
   if (palette) {
     free(palette);
     palette = nullptr;
   }
 
+  printf("pause\n");
   if (pauseBuffer) {
     free(pauseBuffer);
     pauseBuffer = nullptr;
   }
 
-  appExitFlag = false;
-  emuRunning  = true;
-
+  printf("audio\n");
   vmupro_audio_exit_listen_mode();
 }
 
 void app_main(void) {
-  vmupro_log(VMUPRO_LOG_INFO, kLogNESEmu, "Starting Nofrendo Emulator v1.0.0");
+  vmupro_log(VMUPRO_LOG_INFO, kLogNESEmu, "Starting %s v%s", APP_STRING, APP_VERSION);
   vmupro_emubrowser_settings_t emuSettings = {
       .title = "NES", .rootPath = "/sdcard/roms/NES", .filterExtension = ".nes"
   };
@@ -395,30 +445,21 @@ void app_main(void) {
   }
 
   // nes->refresh_rate gets us the refresh rate
-  vmupro_log(VMUPRO_LOG_INFO, kLogNESEmu, "Starting double buffer renderer");
   vmupro_start_double_buffer_renderer();
   // nes->blit_func  = blitScreen;
-  vmupro_log(VMUPRO_LOG_INFO, kLogNESEmu, "Getting back buffer");
   nes_back_buffer = vmupro_get_back_buffer();
   nes_setvidbuf(nes_back_buffer);
-  vmupro_log(VMUPRO_LOG_INFO, kLogNESEmu, "back buffer set to emulator");
 
   // nsfPlayer whatever this is: nes->cart->type == ROM_TYPE_NSF;
 
   ppu_setopt(PPU_LIMIT_SPRITES, true);  // Make this configurable
-  vmupro_log(VMUPRO_LOG_INFO, kLogNESEmu, "setopt PPU");
-  buildPalette();
-  vmupro_log(VMUPRO_LOG_INFO, kLogNESEmu, "build palette");
-
-  nes->builtPalette = palette;
+  buildPalette(NES_PALETTE_SMOOTH);
 
   vmupro_audio_start_listen_mode();
 
   // Apparently we need to emulate two frames in order to restore the state
-  vmupro_log(VMUPRO_LOG_INFO, kLogNESEmu, "two frames rendering");
   nes_emulate(false);
   nes_emulate(false);
-  vmupro_log(VMUPRO_LOG_INFO, kLogNESEmu, "two frames rendered");
 
   renderFrame = 1;
 

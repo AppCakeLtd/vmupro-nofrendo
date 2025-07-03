@@ -649,17 +649,7 @@ ppu_t *ppu_init(void) {
   return &ppu;
 }
 
-void ppu_shutdown(void) {
-  if (ppu.nametab) {
-    free(ppu.nametab);
-    ppu.nametab = NULL;
-  }
-
-  // if (linebuffer) {
-  //   free(linebuffer);
-  //   linebuffer = NULL;
-  // }
-}
+void ppu_shutdown(void) {}
 
 /*************************************************/
 /* TODO: all this stuff should go somewhere else */
