@@ -189,10 +189,10 @@ rom_t *rom_loadmem(uint8 *data, size_t size) {
       (rom.fourscreen) ? '4' : '-'
   );
 
-  rom.prg_ram = vmupro_malloc(rom.prg_ram_banks * ROM_PRG_BANK_SIZE);
-  rom.chr_ram = vmupro_malloc(rom.chr_ram_banks * ROM_CHR_BANK_SIZE);
+  rom.prg_ram = malloc(rom.prg_ram_banks * ROM_PRG_BANK_SIZE);
+  rom.chr_ram = malloc(rom.chr_ram_banks * ROM_CHR_BANK_SIZE);
   if (!rom.prg_rom) {
-    rom.prg_rom      = vmupro_malloc(rom.prg_rom_banks * ROM_PRG_BANK_SIZE);
+    rom.prg_rom      = malloc(rom.prg_rom_banks * ROM_PRG_BANK_SIZE);
     rom.free_prg_rom = true;
   }
 
@@ -223,7 +223,7 @@ rom_t *rom_loadfile(const char *filename) {
     if (size < 16 || size > 0x200000) {
       MESSAGE_ERROR("ROM: File size error\n");
     }
-    else if ((data = vmupro_malloc(size)) == NULL) {
+    else if ((data = malloc(size)) == NULL) {
       MESSAGE_ERROR("ROM: Memory allocation failed\n");
     }
     else if (fread(data, size, 1, fp) != 1) {

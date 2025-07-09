@@ -105,7 +105,7 @@ static bool loadStateHandler(const char *filename) {
 static void buildPalette(nespal_t palIdx) {  // eventually pass a param to choose the palette
   // allocate the palette
   if (!palette) {
-    palette = (uint16_t *)vmupro_malloc(256 * sizeof(uint16_t));
+    palette = (uint16_t *)malloc(256 * sizeof(uint16_t));
   }
   else {
     memset(palette, 0x00, 256 * sizeof(uint16_t));
@@ -405,7 +405,7 @@ void app_main(void) {
   };
   vmupro_emubrowser_init(emuSettings);
 
-  launchfile = (char *)vmupro_malloc(512);
+  launchfile = (char *)malloc(512);
   memset(launchfile, 0x00, 512);
   vmupro_emubrowser_render_contents(launchfile);
   if (strlen(launchfile) == 0) {
@@ -416,7 +416,7 @@ void app_main(void) {
   char launchPath[512 + 22];
   vmupro_snprintf(launchPath, (512 + 22), "/sdcard/roms/NES/%s", launchfile);
 
-  pauseBuffer = (uint8_t *)vmupro_malloc(115200);
+  pauseBuffer = (uint8_t *)malloc(115200);
 
   nes = nes_init(SYS_DETECT, 44100, false, NULL);
   if (!nes) {

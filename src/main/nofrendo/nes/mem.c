@@ -159,7 +159,7 @@ mem_t *mem_init_(void) {
   memset(&mem, 0, sizeof(mem_t));
 
   // We DO care if the alloc fails - without dummy, unmapped pages crash!
-  mem.dummy = vmupro_malloc(MEM_PAGESIZE);
+  mem.dummy = malloc(MEM_PAGESIZE);
   if (!mem.dummy) {
     MESSAGE_ERROR("MEM: Failed to allocate dummy page! This will cause crashes.\n");
     // Allocate a static emergency buffer as fallback

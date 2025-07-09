@@ -633,10 +633,10 @@ void ppu_reset(void) {
 ppu_t *ppu_init(void) {
   memset(&ppu, 0, sizeof(ppu_t));
 
-  ppu.nametab = vmupro_malloc(0x400 * 4);
+  ppu.nametab = malloc(0x400 * 4);
   if (!ppu.nametab) return NULL;
 
-  linebuffer = vmupro_malloc(0x200);
+  linebuffer = malloc(0x200);
   if (!linebuffer) {
     free(ppu.nametab);
     return NULL;
