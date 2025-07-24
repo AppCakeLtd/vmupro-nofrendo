@@ -343,7 +343,9 @@ void Tick() {
         renderFrame = 1;
       }
 
-      vmupro_audio_add_stream_samples((int16_t *)nes->apu->buffer, nes->apu->samples_per_frame, true);
+      vmupro_audio_add_stream_samples(
+          (int16_t *)nes->apu->buffer, nes->apu->samples_per_frame * 2, vmupro_stereo_mode_t::VMUPRO_AUDIO_STEREO, true
+      );
 
       ++frame_counter;
 
@@ -418,7 +420,7 @@ void app_main(void) {
 
   pauseBuffer = (uint8_t *)malloc(115200);
 
-  nes = nes_init(SYS_DETECT, 44100, false, NULL);
+  nes = nes_init(SYS_DETECT, 44100, true, NULL);
   if (!nes) {
     vmupro_log(VMUPRO_LOG_ERROR, kLogNESEmu, "Error initialising NES Emulator!");
     return;
