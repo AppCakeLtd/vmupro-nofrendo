@@ -16,7 +16,7 @@ typedef enum ContextMenuEntryType {
 };
 
 typedef struct ContextMenuEntry_s {
-  const char *title;
+  const char* title;
   bool enabled              = true;
   ContextMenuEntryType type = MENU_ACTION;
 } ContextMenuEntry;
@@ -37,9 +37,9 @@ const ContextMenuEntry emuContextOptionEntries[5] = {
     {.title = "Swap A+B", .enabled = true, .type = MENU_OPTION_BUTTON_SWAP},
 };
 
-static const char *PaletteNames[] = {"Nofrendo", "Composite", "Classic", "NTSC", "PVM", "Smooth"};
+static const char* PaletteNames[] = {"Nofrendo", "Composite", "Classic", "NTSC", "PVM", "Smooth"};
 
-static const char *kLogNESEmu = "[VMU-PRO NES]";
+static const char* kLogNESEmu = "[VMU-PRO NES]";
 static bool emuRunning        = true;
 static bool appExitFlag       = false;
 static bool inOptionsMenu     = false;
@@ -56,12 +56,12 @@ static uint64_t frame_time_total = 0.0f;
 static uint64_t frame_time_max   = 0.0f;
 static uint64_t frame_time_min   = 0.0f;
 static float frame_time_avg      = 0.0f;
-static char *launchfile          = nullptr;
-static char *filename            = nullptr;
-static nes_t *nes;
-static uint16_t *palette        = nullptr;
-static uint8_t *nes_back_buffer = nullptr;
-static uint8_t *pauseBuffer     = nullptr;
+static char* launchfile          = nullptr;
+static char* filename            = nullptr;
+static nes_t* nes;
+static uint16_t* palette        = nullptr;
+static uint8_t* nes_back_buffer = nullptr;
+static uint8_t* pauseBuffer     = nullptr;
 
 static EmulatorMenuState currentEmulatorState = EmulatorMenuState::EMULATOR_RUNNING;
 
@@ -87,14 +87,14 @@ static float get_fps() {
   return num_frames / (frame_time_total / 1e6f);
 }
 
-static bool savaStateHandler(const char *filename) {
+static bool savaStateHandler(const char* filename) {
   // Save to a file named after the game + state (.ggstate)
   char filepath[512];
   vmupro_snprintf(filepath, 512, "/sdcard/roms/%s/STATES/%sstate", "NES", filename);
   return state_save(filepath) == 0;
 }
 
-static bool loadStateHandler(const char *filename) {
+static bool loadStateHandler(const char* filename) {
   char filepath[512];
   vmupro_snprintf(filepath, 512, "/sdcard/roms/%s/STATES/%sstate", "NES", filename);
 
@@ -109,13 +109,13 @@ static bool loadStateHandler(const char *filename) {
 static void buildPalette(nespal_t palIdx) {  // eventually pass a param to choose the palette
   // allocate the palette
   if (!palette) {
-    palette = (uint16_t *)malloc(256 * sizeof(uint16_t));
+    palette = (uint16_t*)malloc(256 * sizeof(uint16_t));
   }
   else {
     memset(palette, 0x00, 256 * sizeof(uint16_t));
   }
 
-  uint16_t *pal = (uint16_t *)nofrendo_buildpalette(palIdx, 16);
+  uint16_t* pal = (uint16_t*)nofrendo_buildpalette(palIdx, 16);
   for (int i = 0; i < 256; ++i) {
     uint16_t color = (pal[i] >> 8) | (pal[i] << 8);
     palette[i]     = color;
@@ -216,7 +216,7 @@ void Tick() {
         if (nesContextSelectionIndex == 0) {
           vmupro_resume_double_buffer_renderer();
           // Save in both cases
-          savaStateHandler((const char *)filename);
+          savaStateHandler((const char*)filename);
 
           // Close the modal
           reset_frame_time();
@@ -226,7 +226,7 @@ void Tick() {
         }
         else if (nesContextSelectionIndex == 1) {
           vmupro_resume_double_buffer_renderer();
-          loadStateHandler((const char *)filename);
+          loadStateHandler((const char*)filename);
 
           // Close the modal
           reset_frame_time();
@@ -357,7 +357,7 @@ void Tick() {
       }
 
       vmupro_audio_add_stream_samples(
-          (int16_t *)nes->apu->buffer, nes->apu->samples_per_frame * 2, vmupro_stereo_mode_t::VMUPRO_AUDIO_STEREO, true
+          (int16_t*)nes->apu->buffer, nes->apu->samples_per_frame * 2, vmupro_stereo_mode_t::VMUPRO_AUDIO_STEREO, true
       );
 
       ++frame_counter;
@@ -416,6 +416,7 @@ void Exit() {
 void app_main(void) {
   vmupro_log(VMUPRO_LOG_INFO, kLogNESEmu, "Starting %s v%s", APP_STRING, APP_VERSION);
   vmupro_emubrowser_settings_t emuSettings = {
+      .version         = 1,
       .title           = "NES",
       .rootPath        = "/sdcard/roms/NES",
       .filterExtension = ".nes",
@@ -425,7 +426,7 @@ void app_main(void) {
   };
   vmupro_emubrowser_init(emuSettings);
 
-  launchfile = (char *)malloc(512);
+  launchfile = (char*)malloc(512);
   memset(launchfile, 0x00, 512);
   vmupro_emubrowser_render_contents(launchfile);
   if (strlen(launchfile) == 0) {
@@ -435,9 +436,9 @@ void app_main(void) {
 
   // char launchPath[512 + 22];
   // vmupro_snprintf(launchPath, (512 + 22), "/sdcard/roms/NES/%s", launchfile);
-  filename = (char *)malloc(512);
+  filename = (char*)malloc(512);
   memset(filename, 0x00, 512);
-  char *filename_ptr = strrchr(launchfile, '/');
+  char* filename_ptr = strrchr(launchfile, '/');
   if (filename_ptr != nullptr) {
     filename_ptr++;  // Move past the '/'
     vmupro_snprintf(filename, 512, "%s", filename_ptr);
@@ -447,7 +448,7 @@ void app_main(void) {
     vmupro_snprintf(filename, 512, "%s", launchfile);
   }
 
-  pauseBuffer = (uint8_t *)malloc(115200);
+  pauseBuffer = (uint8_t*)malloc(115200);
 
   nes = nes_init(SYS_DETECT, 44100, true, NULL);
   if (!nes) {
