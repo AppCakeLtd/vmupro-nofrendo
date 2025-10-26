@@ -63,11 +63,11 @@ INLINE uint8 PPU_MEM_READ(uint32 x) {
 }
 #endif
 
-void ppu_setcontext(const ppu_t *src) { MESSAGE_ERROR("%s: Not implemented!\n", __func__); }
+void ppu_setcontext(const ppu_t* src) { MESSAGE_ERROR("%s: Not implemented!\n", __func__); }
 
-void ppu_getcontext(ppu_t *dest) { MESSAGE_ERROR("%s: Not implemented!\n", __func__); }
+void ppu_getcontext(ppu_t* dest) { MESSAGE_ERROR("%s: Not implemented!\n", __func__); }
 
-void ppu_setpage(uint32 page, uint8 *location) {
+void ppu_setpage(uint32 page, uint8* location) {
   if (page >= PPU_PAGECOUNT || location == NULL) {
     MESSAGE_ERROR("Invalid PPU page #%d!\n", (int)page);
     return;
@@ -81,7 +81,7 @@ void ppu_setpage(uint32 page, uint8 *location) {
     ppu.page[page + 4] = location - ((page + 4) << PPU_PAGESHIFT);
 }
 
-uint8 *ppu_getpage(uint32 page) {
+uint8* ppu_getpage(uint32 page) {
   if (page >= PPU_PAGECOUNT || ppu.page[page] == NULL) {
     MESSAGE_ERROR("Invalid PPU page #%d!\n", (int)page);
     return NULL;
@@ -96,10 +96,10 @@ void ppu_setnametable(uint8 index, uint8 table) {
   ppu_setpage(8 + index, ppu.nametab + (table * PPU_PAGESIZE));
 }
 
-uint8 *ppu_getnametable(uint8 table) { return ppu.nametab + ((table & 3) * PPU_PAGESIZE); }
+uint8* ppu_getnametable(uint8 table) { return ppu.nametab + ((table & 3) * PPU_PAGESIZE); }
 
 void ppu_setmirroring(ppu_mirror_t type) {
-  const uint8 *map = mirroring_maps[type % 5];
+  const uint8* map = mirroring_maps[type % 5];
   ppu_setnametable(0, map[0]);
   ppu_setnametable(1, map[1]);
   ppu_setnametable(2, map[2]);
@@ -311,7 +311,7 @@ INLINE uint32 get_patpix(uint32 tile_addr) {
   return ((pat2 & 0xAA) << 8) | ((pat2 & 0x55) << 1) | ((pat1 & 0xAA) << 7) | ((pat1 & 0x55) << 0);
 }
 
-INLINE void build_tile_colors(bool flip, uint32 pattern, uint8 *colors) {
+INLINE void build_tile_colors(bool flip, uint32 pattern, uint8* colors) {
   /* swap pixels around if our tile is flipped */
   if (flip) {
     colors[7] = (pattern >> 14) & 3;
@@ -339,7 +339,7 @@ INLINE void build_tile_colors(bool flip, uint32 pattern, uint8 *colors) {
 ** where the sprite 0 strike is going to occur (in terms of
 ** cpu cycles), using the relation that 3 pixels == 1 cpu cycle
 */
-INLINE void check_strike(uint8 *surface, uint8 attrib, uint32 pattern) {
+INLINE void check_strike(uint8* surface, uint8 attrib, uint32 pattern) {
   uint8 colors[8];
 
   /* Flag already set */
@@ -360,7 +360,7 @@ INLINE void check_strike(uint8 *surface, uint8 attrib, uint32 pattern) {
   }
 }
 
-INLINE void draw_bgtile(uint8 *surface, uint32 pattern, const uint8 *colors) {
+INLINE void draw_bgtile(uint8* surface, uint32 pattern, const uint8* colors) {
   *surface++ = colors[(pattern >> 14) & 3];
   *surface++ = colors[(pattern >> 6) & 3];
   *surface++ = colors[(pattern >> 12) & 3];
@@ -371,7 +371,7 @@ INLINE void draw_bgtile(uint8 *surface, uint32 pattern, const uint8 *colors) {
   *surface   = colors[pattern & 3];
 }
 
-INLINE void draw_oamtile(uint8 *surface, uint8 attrib, uint32 pattern, const uint8 *col_tbl) {
+INLINE void draw_oamtile(uint8* surface, uint8 attrib, uint32 pattern, const uint8* col_tbl) {
   uint8 colors[8];
 
   /* sprite is 100% transparent */
@@ -402,14 +402,14 @@ INLINE void draw_oamtile(uint8 *surface, uint8 attrib, uint32 pattern, const uin
   }
 }
 
-INLINE void ppu_renderbg(uint8 *vidbuf) {
+INLINE void ppu_renderbg(uint8* vidbuf) {
   /* draw a line of transparent background color if bg is disabled */
   if (!ppu.bg_on) {
     memset(vidbuf, FULLBG, NES_SCREEN_WIDTH);
     return;
   }
 
-  uint8 *bmp_ptr       = vidbuf - ppu.tile_xofs; /* scroll x */
+  uint8* bmp_ptr       = vidbuf - ppu.tile_xofs; /* scroll x */
   uint32 x_tile        = ppu.vaddr & 0x1F;
   uint32 refresh_vaddr = 0x2000 + (ppu.vaddr & 0x0FE0);         /* mask out x tile */
   uint32 bg_offset     = ((ppu.vaddr >> 12) & 7) + ppu.bg_base; /* offset in y tile */
@@ -464,7 +464,7 @@ INLINE void ppu_renderbg(uint8 *vidbuf) {
 }
 
 /* TODO: fetch valid OAM a scanline before, like the Real Thing */
-INLINE void ppu_renderoam(uint8 *vidbuf, int scanline, bool draw) {
+INLINE void ppu_renderoam(uint8* vidbuf, int scanline, bool draw) {
   if (!ppu.obj_on) return;
 
   int sprite_height = ppu.obj_height;
@@ -475,7 +475,7 @@ INLINE void ppu_renderoam(uint8 *vidbuf, int scanline, bool draw) {
   if (draw && !ppu.left_obj_on) memcpy(&savecol, vidbuf, 8);
 
   for (int sprite_num = 0, count = 0; sprite_num < 64; sprite_num++) {
-    ppu_obj_t *sprite = (ppu_obj_t *)ppu.oam + sprite_num;
+    ppu_obj_t* sprite = (ppu_obj_t*)ppu.oam + sprite_num;
 
     int sprite_y   = sprite->y_loc + 1;
     int tile_index = sprite->tile;
@@ -562,9 +562,9 @@ void ppu_endline(void) {
   }
 }
 
-static uint8_t *linebuffer = NULL;
+static uint8_t* linebuffer = NULL;
 
-void ppu_renderline(uint8 *bmp, int scanline, bool draw_flag, uint16_t *palette) {
+void ppu_renderline(uint8* bmp, int scanline, bool draw_flag, uint16_t* palette) {
   ppu.scanline = scanline;
 
   // Draw visible line
@@ -580,7 +580,7 @@ void ppu_renderline(uint8 *bmp, int scanline, bool draw_flag, uint16_t *palette)
         ppu.vaddr = (ppu.vaddr & ~0x041F) | (ppu.vaddr_latch & 0x041F);
     }
 
-    uint8 *vidbuf = (uint8_t *)linebuffer;  // NES_SCREEN_GETPTR(bmp, 0, scanline);
+    uint8* vidbuf = (uint8_t*)linebuffer + NES_SCREEN_OVERDRAW;  // NES_SCREEN_GETPTR(bmp, 0, scanline);
 
     if (draw_flag && OPT(PPU_DRAW_BACKGROUND)) ppu_renderbg(vidbuf);
 
@@ -588,16 +588,18 @@ void ppu_renderline(uint8 *bmp, int scanline, bool draw_flag, uint16_t *palette)
     ppu_renderoam(vidbuf, scanline, draw_flag && OPT(PPU_DRAW_SPRITES));
 
     // We should have a line. Draw it to our output buffer
-    uint32_t *screen32 = (uint32_t *)bmp;
+    // if (scanline % 2 == 0) {
+    uint32_t* screen32 = (uint32_t*)bmp;
     int width          = 240;
     int xstart         = 8;
-    for (int p = xstart; p <= width + xstart; p += 2) {
-      uint16_t pixel1 = palette[vidbuf[p] % 192];
-      uint16_t pixel2 = palette[vidbuf[p + 1] % 192];
+    for (int p = xstart; p < width + xstart; p += 2) {
+      uint16_t pixel1 = palette[vidbuf[p]];
+      uint16_t pixel2 = palette[vidbuf[p + 1]];
 
       uint32_t combinedPixels                               = (pixel2 << 16) | pixel1;
       screen32[(((scanline + 0) * 240) + (p - xstart)) / 2] = combinedPixels;
     }
+    // }
   }
   // Vertical Blank
   else if (scanline == 241) {
@@ -630,13 +632,13 @@ void ppu_reset(void) {
   ppu.scanlines               = nes_getptr()->scanlines_per_frame;
 }
 
-ppu_t *ppu_init(void) {
+ppu_t* ppu_init(void) {
   memset(&ppu, 0, sizeof(ppu_t));
 
   ppu.nametab = malloc(0x400 * 4);
   if (!ppu.nametab) return NULL;
 
-  linebuffer = malloc(0x200);
+  linebuffer = malloc(0x200 + 8 + 8);
   if (!linebuffer) {
     free(ppu.nametab);
     return NULL;
@@ -654,9 +656,9 @@ void ppu_shutdown(void) {}
 /*************************************************/
 /* TODO: all this stuff should go somewhere else */
 /*************************************************/
-static void draw_box(uint8 *bmp, int x, int y, int height) {
+static void draw_box(uint8* bmp, int x, int y, int height) {
   int i;
-  uint8 *vid;
+  uint8* vid;
 
   vid = NES_SCREEN_GETPTR(bmp, x, y);
 
@@ -669,9 +671,9 @@ static void draw_box(uint8 *bmp, int x, int y, int height) {
   for (i = 0; i < 10; i++) *vid++ = PPU_GUI_GRAY;
 }
 
-static void draw_deadsprite(uint8 *bmp, int x, int y, int height) {
+static void draw_deadsprite(uint8* bmp, int x, int y, int height) {
   int i, j, index;
-  uint8 *vid;
+  uint8* vid;
   uint8 colbuf[8] = {
       PPU_GUI_BLACK,
       PPU_GUI_BLACK,
@@ -699,10 +701,10 @@ static void draw_deadsprite(uint8 *bmp, int x, int y, int height) {
   }
 }
 
-static void draw_sprite(uint8 *bmp, int x, int y, uint8 tile_num, uint8 attrib) {
+static void draw_sprite(uint8* bmp, int x, int y, uint8 tile_num, uint8 attrib) {
   int line, height;
   int col_high, tile_addr;
-  uint8 *vid;
+  uint8* vid;
 
   vid = NES_SCREEN_GETPTR(bmp, x, y);
 
@@ -727,11 +729,11 @@ static void draw_sprite(uint8 *bmp, int x, int y, uint8 tile_num, uint8 attrib) 
   }
 }
 
-void ppu_dumpoam(uint8 *bmp, int x_loc, int y_loc) {
+void ppu_dumpoam(uint8* bmp, int x_loc, int y_loc) {
   int sprite, x_pos, y_pos, height;
-  ppu_obj_t *spr_ptr;
+  ppu_obj_t* spr_ptr;
 
-  spr_ptr = (ppu_obj_t *)ppu.oam;
+  spr_ptr = (ppu_obj_t*)ppu.oam;
   height  = ppu.obj_height;
 
   for (sprite = 0; sprite < 64; sprite++) {
@@ -752,6 +754,6 @@ void ppu_dumpoam(uint8 *bmp, int x_loc, int y_loc) {
   }
 }
 
-void ppu_dumpbg(uint8 *bmp, int x_loc, int y_loc) {
+void ppu_dumpbg(uint8* bmp, int x_loc, int y_loc) {
   //
 }

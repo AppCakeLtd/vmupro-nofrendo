@@ -5,7 +5,7 @@
 #define LOG_PRINTF(level, x...) rg_system_log(RG_LOG_PRINTF, NULL, x)
 #define CRC32(a, b, c) rg_crc32(a, b, c)
 #else
-extern unsigned long crc32(int crc, uint8_t *buf, int len);
+extern unsigned long crc32(int crc, uint8_t* buf, int len);
 #include <stdio.h>
 #define LOG_PRINTF(level, x...) printf(x)
 #define IRAM_ATTR
