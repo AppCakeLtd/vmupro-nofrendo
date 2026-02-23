@@ -3,7 +3,7 @@
   "app_name": "Nofrendo",
   "app_author": "8BitMods",
   "app_version": "0.9.6",
-  "app_mode": 2,
+  "app_mode": 3,
   "app_environment": "native",
   "icon_transparency": true,
   "app_entry_point": "app_main",

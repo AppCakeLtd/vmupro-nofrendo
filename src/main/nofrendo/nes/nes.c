@@ -26,7 +26,7 @@
 
 static nes_t nes;
 
-nes_t *nes_getptr(void) { return &nes; }
+nes_t* nes_getptr(void) { return &nes; }
 
 /* run emulation for one frame */
 void nes_emulate(bool draw) {
@@ -69,20 +69,20 @@ void nes_emulate(bool draw) {
   apu_emulate();
 }
 
-uint8 *nes_setvidbuf(uint8 *vidbuf) {
-  uint8 *prevbuf = nes.vidbuf;
+uint8* nes_setvidbuf(uint8* vidbuf) {
+  uint8* prevbuf = nes.vidbuf;
   nes.vidbuf     = vidbuf;
   return prevbuf;
 }
 
 /* This sets a timer to be fired every `period` cpu cycles. It is NOT accurate. */
-void nes_settimer(nes_timer_t *func, int period) {
+void nes_settimer(nes_timer_t* func, int period) {
   nes.timer_func   = func;
   nes.timer_period = period;
 }
 
 /* insert a cart into the NES */
-int nes_insertcart(rom_t *cart) {
+int nes_insertcart(rom_t* cart) {
   int status = 0;
 
   /* rom file */
@@ -157,7 +157,7 @@ _fail:
 }
 
 /* Load a ROM file */
-int nes_loadfile(const char *filename) { return nes_insertcart(rom_loadfile(filename)); }
+int nes_loadfile(const char* filename) { return nes_insertcart(rom_loadfile(filename)); }
 
 /* Reset NES hardware */
 void nes_reset(bool hard_reset) {
@@ -194,7 +194,7 @@ void nes_shutdown(void) {
 }
 
 /* Initialize NES CPU, hardware, etc. */
-nes_t *nes_init(nes_type_t system, int sample_rate, bool stereo, const char *fds_bios) {
+nes_t* nes_init(nes_type_t system, int sample_rate, bool stereo, const char* fds_bios) {
   memset(&nes, 0, sizeof(nes_t));
 
   nes.system       = system;
