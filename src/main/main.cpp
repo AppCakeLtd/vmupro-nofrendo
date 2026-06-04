@@ -45,6 +45,7 @@ static bool emuRunning        = true;
 static bool appExitFlag       = false;
 static bool inOptionsMenu     = false;
 static bool swapButtons       = false;
+static int stateSlot          = 1;
 
 static int frame_counter            = 0;
 static int renderFrame              = 0;
@@ -89,19 +90,14 @@ static float get_fps() {
 }
 
 static bool savaStateHandler(const char* filename) {
-  // Save to a file named after the game + state (.ggstate)
   char filepath[512];
-  strcpy(filepath, "/sdcard/roms/NES/STATES/");
-  strcat(filepath, filename);
-  strcat(filepath, "state");
+  vmupro_snprintf(filepath, 512, "/sdcard/roms/NES/STATES/%s.st%d", filename, stateSlot);
   return state_save(filepath) == 0;
 }
 
 static bool loadStateHandler(const char* filename) {
   char filepath[512];
-  strcpy(filepath, "/sdcard/roms/NES/STATES/");
-  strcat(filepath, filename);
-  strcat(filepath, "state");
+  vmupro_snprintf(filepath, 512, "/sdcard/roms/NES/STATES/%s.st%d", filename, stateSlot);
 
   if (state_load(filepath) != 0) {
     nes_reset(true);
@@ -109,6 +105,44 @@ static bool loadStateHandler(const char* filename) {
   }
 
   return true;
+}
+
+typedef struct {
+  uint8_t version;
+  uint8_t stateSlot;
+  uint8_t paletteIndex;
+  uint8_t swapButtons;
+} nes_settings_t;
+
+static void saveSettings() {
+  char path[512];
+  vmupro_snprintf(path, 512, "/sdcard/roms/NES/SAVES/%s.cfg", filename);
+  FILE* fp = fopen(path, "wb");
+  if (!fp) return;
+  nes_settings_t s = {
+      .version      = 1,
+      .stateSlot    = (uint8_t)stateSlot,
+      .paletteIndex = (uint8_t)nesCurrentPaletteIndex,
+      .swapButtons  = (uint8_t)(swapButtons ? 1 : 0),
+  };
+  fwrite(&s, sizeof(s), 1, fp);
+  fclose(fp);
+  vmupro_log(VMUPRO_LOG_INFO, kLogNESEmu, "Settings saved: %s", path);
+}
+
+static void loadSettings() {
+  char path[512];
+  vmupro_snprintf(path, 512, "/sdcard/roms/NES/SAVES/%s.cfg", filename);
+  FILE* fp = fopen(path, "rb");
+  if (!fp) return;
+  nes_settings_t s;
+  if (fread(&s, sizeof(s), 1, fp) == 1 && s.version == 1) {
+    stateSlot              = (s.stateSlot >= 1 && s.stateSlot <= 9) ? s.stateSlot : 1;
+    nesCurrentPaletteIndex = (s.paletteIndex < NES_PALETTE_COUNT) ? s.paletteIndex : 0;
+    swapButtons            = (s.swapButtons != 0);
+  }
+  fclose(fp);
+  vmupro_log(VMUPRO_LOG_INFO, kLogNESEmu, "Settings loaded: %s", path);
 }
 
 static void buildPalette(nespal_t palIdx) {  // eventually pass a param to choose the palette
@@ -184,6 +218,12 @@ void Tick() {
                   PaletteNames[nesCurrentPaletteIndex], 190 - tlen - 5, startY + (x * 22), fgColor, bgColor
               );
             } break;
+            case MENU_OPTION_STATE_SLOT: {
+              char slotText[4];
+              vmupro_snprintf(slotText, 4, "%d", stateSlot);
+              int tlen = vmupro_calc_text_length(slotText);
+              vmupro_draw_text(slotText, 190 - tlen - 5, startY + (x * 22), fgColor, bgColor);
+            } break;
             case MENU_OPTION_BUTTON_SWAP: {
               char swapTextState[5] = "Yes";
               strcpy(swapTextState, swapButtons ? "Yes" : "No");
@@ -252,6 +292,10 @@ void Tick() {
           inOptionsMenu = true;
         }
         else if (nesContextSelectionIndex == 4) {  // Quit
+          saveSettings();
+          char sramfile[512];
+          vmupro_snprintf(sramfile, 512, "/sdcard/roms/NES/SAVES/%s.sram", filename);
+          rom_savesram(sramfile);
           appExitFlag = true;
           emuRunning  = false;
           nes_shutdown();
@@ -306,6 +350,14 @@ void Tick() {
             }
             buildPalette((nespal_t)nesCurrentPaletteIndex);
           } break;
+          case MENU_OPTION_STATE_SLOT:
+            if (vmupro_btn_pressed(DPad_Right)) {
+              stateSlot = stateSlot < 9 ? stateSlot + 1 : 1;
+            }
+            else {
+              stateSlot = stateSlot > 1 ? stateSlot - 1 : 9;
+            }
+            break;
           case MENU_OPTION_BUTTON_SWAP:
             swapButtons = !swapButtons;
             break;
@@ -396,12 +448,6 @@ void Tick() {
 }
 
 void Exit() {
-  char sramfile[512];
-  strcpy(sramfile, "/sdcard/roms/NES/SAVES/");
-  strcat(sramfile, filename);
-  strcat(sramfile, ".sram");
-  rom_savesram(sramfile);
-
   if (launchfile) {
     free(launchfile);
     launchfile = nullptr;
@@ -422,187 +468,6 @@ void Exit() {
 
 void app_main(void) {
   vmupro_log(VMUPRO_LOG_INFO, kLogNESEmu, "Starting %s v%s", APP_STRING, APP_VERSION);
-
-  // // ============================================================
-  // // Flash DCache security test
-  // // Tests whether Core 1 can read firmware through DCache at
-  // // 0x3C000000. Writes full dump to SD and reports statistics.
-  // // TRM says unauthorized reads return 0xdeadbeaf.
-  // // ============================================================
-
-  // vmupro_log(VMUPRO_LOG_INFO, "SECURITY", "=== Flash DCache dump test ===");
-
-  // // Flash DCache window: 0x3C000000 - 0x3CFFFFFF (16MB max)
-  // // Firmware is ~2-4MB typically. We'll scan 4MB.
-  // const uint32_t FLASH_BASE     = 0x3C000000;
-  // const uint32_t SCAN_SIZE      = 4 * 1024 * 1024;  // 4MB
-  // const uint32_t PAGE_SIZE      = 4096;
-  // const uint32_t WORDS_PER_PAGE = PAGE_SIZE / 4;
-  // const uint32_t TOTAL_PAGES    = SCAN_SIZE / PAGE_SIZE;
-  // const uint32_t DEADBEAF       = 0xdeadbeaf;
-
-  // // Allocate one page buffer for reading (must use 32-bit reads)
-  // uint32_t* pageBuf = (uint32_t*)malloc(PAGE_SIZE);
-  // if (!pageBuf) {
-  //   vmupro_log(VMUPRO_LOG_ERROR, "SECURITY", "Failed to allocate page buffer");
-  //   return;
-  // }
-
-  // // --- Test 1: Full dump to file + statistics ---
-  // vmupro_log(VMUPRO_LOG_INFO, "SECURITY", "Test 1: Full 4MB dump to /sdcard/flash_dump.bin");
-
-  // FILE* f                 = fopen("/sdcard/flash_dump.bin", "wb");
-  // uint32_t pages_readable = 0;
-  // uint32_t pages_blocked  = 0;
-  // uint32_t pages_zero     = 0;
-  // uint32_t pages_mixed    = 0;
-  // uint32_t total_deadbeaf = 0;
-  // uint32_t total_zero     = 0;
-  // uint32_t total_real     = 0;
-
-  // for (uint32_t page = 0; page < TOTAL_PAGES; page++) {
-  //   volatile uint32_t* src = (volatile uint32_t*)(FLASH_BASE + page * PAGE_SIZE);
-  //   uint32_t dead_count    = 0;
-  //   uint32_t zero_count    = 0;
-  //   uint32_t real_count    = 0;
-
-  //   // Read page using 32-bit reads
-  //   for (uint32_t w = 0; w < WORDS_PER_PAGE; w++) {
-  //     uint32_t val = src[w];
-  //     pageBuf[w]   = val;
-  //     if (val == DEADBEAF)
-  //       dead_count++;
-  //     else if (val == 0)
-  //       zero_count++;
-  //     else
-  //       real_count++;
-  //   }
-
-  //   // Write page to file
-  //   if (f) {
-  //     fwrite(pageBuf, 1, PAGE_SIZE, f);
-  //   }
-
-  //   // Classify page
-  //   if (dead_count == WORDS_PER_PAGE) {
-  //     pages_blocked++;
-  //   }
-  //   else if (zero_count == WORDS_PER_PAGE) {
-  //     pages_zero++;
-  //   }
-  //   else if (dead_count == 0 && real_count > 0) {
-  //     pages_readable++;
-  //   }
-  //   else {
-  //     pages_mixed++;
-  //   }
-
-  //   total_deadbeaf += dead_count;
-  //   total_zero += zero_count;
-  //   total_real += real_count;
-
-  //   // Log every 256 pages (1MB)
-  //   if ((page & 0xFF) == 0) {
-  //     vmupro_log(
-  //         VMUPRO_LOG_INFO,
-  //         "SECURITY",
-  //         "  page %lu/%lu: readable=%lu blocked=%lu zero=%lu mixed=%lu",
-  //         (unsigned long)page,
-  //         (unsigned long)TOTAL_PAGES,
-  //         (unsigned long)pages_readable,
-  //         (unsigned long)pages_blocked,
-  //         (unsigned long)pages_zero,
-  //         (unsigned long)pages_mixed
-  //     );
-  //   }
-  // }
-
-  // if (f) fclose(f);
-
-  // uint32_t total_words = SCAN_SIZE / 4;
-  // vmupro_log(VMUPRO_LOG_INFO, "SECURITY", "--- Full dump results (4MB / %lu pages) ---", (unsigned long)TOTAL_PAGES);
-  // vmupro_log(VMUPRO_LOG_INFO, "SECURITY", "  Pages readable (real data):  %lu", (unsigned long)pages_readable);
-  // vmupro_log(VMUPRO_LOG_INFO, "SECURITY", "  Pages blocked (0xdeadbeaf): %lu", (unsigned long)pages_blocked);
-  // vmupro_log(VMUPRO_LOG_INFO, "SECURITY", "  Pages all-zero:             %lu", (unsigned long)pages_zero);
-  // vmupro_log(VMUPRO_LOG_INFO, "SECURITY", "  Pages mixed:                %lu", (unsigned long)pages_mixed);
-  // vmupro_log(
-  //     VMUPRO_LOG_INFO,
-  //     "SECURITY",
-  //     "  Words: real=%lu dead=%lu zero=%lu / %lu total",
-  //     (unsigned long)total_real,
-  //     (unsigned long)total_deadbeaf,
-  //     (unsigned long)total_zero,
-  //     (unsigned long)total_words
-  // );
-
-  // // --- Test 2: Probe specific non-cached regions ---
-  // // Core 0 accesses .rodata near the start of flash mapping.
-  // // Deep offsets (2MB+, 3MB+) are unlikely to be cached.
-  // vmupro_log(VMUPRO_LOG_INFO, "SECURITY", "--- Test 2: Probe specific offsets ---");
-
-  // const uint32_t probe_offsets[] = {
-  //     0x00000000,  // Start of flash (likely cached - GOT, early .rodata)
-  //     0x00010000,  // 64KB in
-  //     0x00040000,  // 256KB in
-  //     0x00080000,  // 512KB in
-  //     0x00100000,  // 1MB in
-  //     0x00200000,  // 2MB in (likely NOT cached)
-  //     0x00300000,  // 3MB in (likely NOT cached)
-  //     0x003F0000,  // Near end of 4MB (likely NOT cached)
-  // };
-  // const int num_probes = sizeof(probe_offsets) / sizeof(probe_offsets[0]);
-
-  // for (int p = 0; p < num_probes; p++) {
-  //   volatile uint32_t* probe = (volatile uint32_t*)(FLASH_BASE + probe_offsets[p]);
-  //   uint32_t w0              = probe[0];
-  //   uint32_t w1              = probe[1];
-  //   uint32_t w2              = probe[2];
-  //   uint32_t w3              = probe[3];
-
-  //   const char* status;
-  //   if (w0 == DEADBEAF && w1 == DEADBEAF && w2 == DEADBEAF && w3 == DEADBEAF) {
-  //     status = "BLOCKED";
-  //   }
-  //   else if (w0 == 0 && w1 == 0 && w2 == 0 && w3 == 0) {
-  //     status = "ALL-ZERO";
-  //   }
-  //   else {
-  //     status = "READABLE";
-  //   }
-
-  //   vmupro_log(
-  //       VMUPRO_LOG_INFO,
-  //       "SECURITY",
-  //       "  0x%08lx: [%08lx %08lx %08lx %08lx] %s",
-  //       (unsigned long)(FLASH_BASE + probe_offsets[p]),
-  //       (unsigned long)w0,
-  //       (unsigned long)w1,
-  //       (unsigned long)w2,
-  //       (unsigned long)w3,
-  //       status
-  //   );
-  // }
-
-  // // --- Test 3: First 16 words at 0x3C000000 (for comparison with previous tests) ---
-  // vmupro_log(VMUPRO_LOG_INFO, "SECURITY", "--- Test 3: First 16 words at 0x3C000000 ---");
-  // volatile uint32_t* flashStart = (volatile uint32_t*)FLASH_BASE;
-  // for (int i = 0; i < 16; i++) {
-  //   uint32_t val = flashStart[i];
-  //   vmupro_log(
-  //       VMUPRO_LOG_INFO,
-  //       "SECURITY",
-  //       "  [%02d] 0x%08lx %s",
-  //       i,
-  //       (unsigned long)val,
-  //       val == DEADBEAF ? "(BLOCKED)"
-  //       : val == 0      ? "(ZERO)"
-  //                       : ""
-  //   );
-  // }
-
-  // vmupro_log(VMUPRO_LOG_INFO, "SECURITY", "=== Flash DCache dump test complete ===");
-
-  // free(pageBuf);
 
   vmupro_emubrowser_settings_t emuSettings = {
       .version         = 1,
@@ -673,17 +538,19 @@ void app_main(void) {
   // nsfPlayer whatever this is: nes->cart->type == ROM_TYPE_NSF;
 
   ppu_setopt(PPU_LIMIT_SPRITES, true);  // Make this configurable
-  buildPalette(NES_PALETTE_SMOOTH);
 
   vmupro_audio_start_listen_mode();
 
-  if (!vmupro_folder_exists("/sdcard/roms/NES/STATE")) {
-    vmupro_create_folder("/sdcard/roms/NES/STATE");
+  if (!vmupro_folder_exists("/sdcard/roms/NES/STATES")) {
+    vmupro_create_folder("/sdcard/roms/NES/STATES");
   }
 
   if (!vmupro_folder_exists("/sdcard/roms/NES/SAVES")) {
     vmupro_create_folder("/sdcard/roms/NES/SAVES");
   }
+
+  loadSettings();
+  buildPalette((nespal_t)nesCurrentPaletteIndex);
 
   char sramfile[512];
   strcpy(sramfile, "/sdcard/roms/NES/SAVES/");
